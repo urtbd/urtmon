@@ -2,23 +2,30 @@ import curses
 import math
 import socket
 import sys
-import time
 from threading import Timer
+
+HOST = "5.135.165.34"
+PORT = "27001"
 
 
 class UrTop:
-    def __init__(self):
+    def __init__(self, host, port):
         self.screen = curses.initscr()
         self.max_yx = self.screen.getmaxyx()
+
+        # 3 columns, 50%, 25% 25% of current width
         self.name_length = int(math.floor(self.max_yx[1] * 0.50))
         self.score_length = self.ping_length = int(math.floor(self.max_yx[1] * 0.25))
         self.title_start = int(math.floor(self.max_yx[1] * 0.40))
 
-        self.host = "5.135.165.34"
-        self.port = "27001"
-        self.server_details = None
-        self.get_server_details()
+        # Test host
+        self.host = host
+        self.port = port
 
+        # Start with the server details
+        self.server_details = None
+
+        # Don't echo, don't break on character input
         curses.nocbreak()
         curses.noecho()
 
@@ -26,7 +33,8 @@ class UrTop:
         self.get_server_details()
         self.paint_layout()
 
-
+    # function shamelessly borrowed from pyurtstat project
+    # Source: https://github.com/masnun/pyurtstat/blob/master/pyurtstat.py
     def get_server_details(self):
         # Data Place Holders
         urt_server_details = {}
@@ -62,9 +70,14 @@ class UrTop:
         self.server_details = urt_server_details
 
     def paint_layout(self):
+        # Clear the screen, just to be sure
         self.screen.clear()
+
+        # Title message
         self.screen.addstr(0, self.title_start, "UrT Server Monitor")
         self.screen.hline(1, self.title_start, '=', 20)
+
+        # Top row
         self.screen.addstr(4, 0, "Player")
         self.screen.hline(5, 0, '-', 10)
         self.screen.addstr(4, self.name_length + 1, "Score")
@@ -72,6 +85,7 @@ class UrTop:
         self.screen.addstr(4, self.name_length + 1 + self.score_length + 1, "Ping")
         self.screen.hline(5, self.name_length + 1 + self.score_length + 1, '-', 10)
 
+        # Display the player information
         y = 6
         for player in self.server_details['players']:
             self.screen.addnstr(y, 0, player['name'], self.name_length)
@@ -80,9 +94,11 @@ class UrTop:
 
             y += 1
 
+        # Done writing, repaint the screen
         self.screen.refresh()
 
 
+# Custom class for handling the threaded refresh
 class TimedRunner():
     def __init__(self, interval, func):
         self.time_interval = interval
@@ -101,22 +117,28 @@ class TimedRunner():
                 self.thread.join(5)
         except KeyboardInterrupt:
             self.run = False
-            curses.endwin()
-            sys.exit()
 
+            # Hand the screen back to the terminal
+            curses.endwin()
+            # Exit thread
+            sys.exit()
 
     def cancel(self):
         self.thread.cancel()
 
 
+# Callback for the timed thread
 def main():
     urtop.update_view()
 
 
-urtop = UrTop()
+if __name__ == "__main__":
+    # Global variable which is accessible from above func
+    urtop = UrTop(HOST, PORT)
 
-runner = TimedRunner(3, main)
-runner.start()
+    # Run the thread
+    runner = TimedRunner(3, main)
+    runner.start()
 
 
 
