@@ -87,17 +87,23 @@ class TimedRunner():
     def __init__(self, interval, func):
         self.time_interval = interval
         self.func = func
-        self.thread = Timer(self.time_interval, self.handle_function)
-
-    def handle_function(self):
-        self.func()
-        self.thread = Timer(self.time_interval, self.handle_function)
-        self.thread.start()
-
+        self.run = True
 
     def start(self):
-        self.func()
-        self.thread.start()
+        if self.run:
+            self.func()
+            self.thread = Timer(self.time_interval, self.start)
+            self.thread.start()
+        else:
+            self.thread = None
+        try:
+            while self.thread and self.thread.is_alive():
+                self.thread.join(5)
+        except KeyboardInterrupt:
+            self.run = False
+            curses.endwin()
+            sys.exit()
+
 
     def cancel(self):
         self.thread.cancel()
@@ -105,12 +111,11 @@ class TimedRunner():
 
 def main():
     urtop.update_view()
-    time.sleep(1)
 
 
 urtop = UrTop()
 
-runner = TimedRunner(2, main)
+runner = TimedRunner(3, main)
 runner.start()
 
 
