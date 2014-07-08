@@ -2,13 +2,17 @@ import curses
 import math
 import socket
 import sys
-from threading import Timer
+from threading import Thread
+from Queue import Queue
+from time import sleep
 
 HOST = "5.135.165.34"
 PORT = "27001"
 
+queue = Queue()
 
-class UrTop:
+
+class UrTMon:
     def __init__(self, host, port):
         self.screen = curses.initscr()
         self.max_yx = self.screen.getmaxyx()
@@ -98,47 +102,37 @@ class UrTop:
         self.screen.refresh()
 
 
-# Custom class for handling the threaded refresh
-class TimedRunner():
-    def __init__(self, interval, func):
-        self.time_interval = interval
-        self.func = func
-        self.run = True
-
-    def start(self):
-        if self.run:
-            self.func()
-            self.thread = Timer(self.time_interval, self.start)
-            self.thread.start()
-        else:
-            self.thread = None
-        try:
-            while self.thread and self.thread.is_alive():
-                self.thread.join(5)
-        except KeyboardInterrupt:
-            self.run = False
-
-            # Hand the screen back to the terminal
-            curses.endwin()
-            # Exit thread
-            sys.exit()
-
-    def cancel(self):
-        self.thread.cancel()
+class Worker(Thread):
+    def __init__(self, urtmon, queue):
+        Thread.__init__(self)
 
 
-# Callback for the timed thread
-def main():
-    urtop.update_view()
+        self.queue = queue
+        self.urtmon = urtmon
+        self.setDaemon(True)
+
+
+    def run(self):
+        while True:
+            self.queue.get()
+            self.urtmon.update_view()
 
 
 if __name__ == "__main__":
     # Global variable which is accessible from above func
-    urtop = UrTop(HOST, PORT)
+    urtmon = UrTMon(HOST,PORT)
+    worker = Worker(urtmon, queue)
+    worker.start()
 
-    # Run the thread
-    runner = TimedRunner(3, main)
-    runner.start()
+    try:
+        while True:
+            queue.put(True)
+            sleep(3)
+    except KeyboardInterrupt:
+        curses.endwin()
+        sys.exit()
+
+
 
 
 
